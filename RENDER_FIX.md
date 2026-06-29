@@ -2,6 +2,8 @@
 
 AllCoast is now a forecasting-only web app. Use a normal npm deploy on Render.
 
+This package does not use Vite, React, Tailwind, or esbuild during deployment. The frontend is served from `public/index.html`, and the server handles live forecast API calls.
+
 ## Render settings
 
 - Build Command: `npm install && npm run build`

@@ -92,11 +92,18 @@ async function fetchTideSummary(stationId: string | null) {
 }
 
 const distPath = path.join(process.cwd(), "dist");
+const publicPath = path.join(process.cwd(), "public");
 if (existsSync(distPath)) {
   app.use(express.static(distPath));
   app.use((request, response, next) => {
     if (request.path.startsWith("/api/")) return next();
     response.sendFile(path.join(distPath, "index.html"));
+  });
+} else if (existsSync(publicPath)) {
+  app.use(express.static(publicPath));
+  app.use((request, response, next) => {
+    if (request.path.startsWith("/api/")) return next();
+    response.sendFile(path.join(publicPath, "index.html"));
   });
 }
 

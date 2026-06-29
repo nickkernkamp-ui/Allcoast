@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f8fb" />
+    <title>AllCoast</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f8fb;
+        --surface: #ffffff;
+        --ink: #0b1720;
+        --muted: #667789;
+        --line: #dce6ee;
+        --blue: #0477ff;
+        --blue-strong: #0066df;
+        --cyan: #00a7c8;
+        --danger: #d84b32;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        letter-spacing: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button, input { font: inherit; letter-spacing: 0; }
+      button { cursor: pointer; }
+      button:disabled { cursor: not-allowed; opacity: .48; }
+      input { font-size: 16px; }
+
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, .92);
+        backdrop-filter: blur(18px);
+      }
+
+      .header-inner {
+        width: min(1180px, 100%);
+        height: 64px;
+        margin: 0 auto;
+        padding: 0 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .brand { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 950; }
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: #e8f5ff;
+        color: var(--blue);
+        font-size: 22px;
+        font-weight: 950;
+      }
+
+      .nav { display: flex; align-items: center; gap: 8px; }
+      .nav span {
+        border-radius: 999px;
+        padding: 10px 14px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 850;
+      }
+      .nav .active { background: #e8f5ff; color: var(--blue); }
+
+      main {
+        width: min(1180px, 100%);
+        margin: 0 auto;
+        padding: 24px 18px 52px;
+      }
+
+      .hero, .panel, .custom {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        box-shadow: 0 14px 36px rgba(24, 58, 91, .06);
+      }
+
+      .hero {
+        overflow: hidden;
+        border-radius: 28px;
+      }
+
+      .hero-top {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 24px;
+        padding: 28px;
+        border-bottom: 1px solid var(--line);
+        background: #fafdff;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: var(--blue-strong);
+        font-size: 11px;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(36px, 6vw, 64px);
+        line-height: .94;
+      }
+
+      h2 { margin: 4px 0; font-size: 22px; }
+      h3 { margin: 0 0 14px; color: var(--blue-strong); font-size: 11px; font-weight: 950; text-transform: uppercase; }
+      p { margin: 0; }
+
+      .sub {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      label { display: block; }
+      .label {
+        display: block;
+        margin-bottom: 7px;
+        color: #314354;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .field {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid #d5e1ea;
+        border-radius: 8px;
+        background: #fff;
+        color: var(--ink);
+        padding: 11px 13px;
+        outline: none;
+      }
+
+      .field:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(83, 199, 210, .14); }
+
+      .spots {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        max-height: 132px;
+        margin-top: 12px;
+        overflow: auto;
+        padding-right: 2px;
+      }
+
+      .chip, .day, .secondary, .primary {
+        min-height: 44px;
+        border-radius: 999px;
+        font-weight: 900;
+      }
+
+      .chip, .day, .secondary {
+        border: 1px solid #d8e4ed;
+        background: #fff;
+        color: #5f7182;
+      }
+
+      .chip {
+        padding: 9px 12px;
+        text-align: left;
+        font-size: 12px;
+      }
+
+      .chip.active, .day.active {
+        border-color: var(--blue);
+        background: var(--blue);
+        color: #fff;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        padding: 24px 28px;
+      }
+
+      .stat {
+        border: 1px solid #d8e4ed;
+        border-radius: 22px;
+        background: #fafdff;
+        padding: 18px;
+      }
+
+      .stat .icon { color: var(--blue); font-size: 19px; font-weight: 950; }
+      .stat strong { display: block; margin-top: 18px; font-size: 31px; line-height: 1; }
+      .stat span { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; font-weight: 950; text-transform: uppercase; }
+
+      .days {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 22px 28px 28px;
+        border-top: 1px solid var(--line);
+      }
+
+      .day { padding: 0 15px; }
+      .recommendation {
+        width: 100%;
+        max-width: 780px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 650;
+        line-height: 1.65;
+      }
+
+      .custom {
+        margin-top: 18px;
+        border-radius: 22px;
+        padding: 20px;
+      }
+
+      .custom-grid {
+        display: grid;
+        grid-template-columns: 280px 1fr 1fr 1fr auto;
+        gap: 12px;
+        align-items: end;
+      }
+
+      .helper { color: var(--muted); font-size: 14px; font-weight: 750; line-height: 1.5; }
+      .primary {
+        border: 1px solid var(--blue);
+        background: var(--blue);
+        color: #fff;
+        padding: 0 18px;
+      }
+      .secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 16px;
+      }
+
+      .error {
+        margin-top: 18px;
+        border: 1px solid #ffd2c8;
+        border-radius: 18px;
+        background: #fff0ed;
+        color: var(--danger);
+        padding: 14px 16px;
+        font-size: 14px;
+        font-weight: 850;
+      }
+
+      .content {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .panel { border-radius: 22px; overflow: hidden; }
+      .table-wrap { overflow-x: auto; }
+      .table { min-width: 680px; }
+
+      .table-head, .row {
+        display: grid;
+        grid-template-columns: 84px 96px 1fr 88px 96px;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 18px;
+      }
+
+      .table-head {
+        background: #f4f8fb;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 950;
+        text-transform: uppercase;
+      }
+
+      .row {
+        min-height: 76px;
+        border-top: 1px solid var(--line);
+        font-size: 14px;
+        font-weight: 850;
+      }
+
+      .small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
+      .bars { display: flex; gap: 4px; }
+      .bars i { width: 12px; height: 22px; border-radius: 999px; background: #d8e4ed; }
+      .bars .on { background: var(--blue); }
+
+      aside { display: grid; gap: 12px; align-content: start; }
+      .side {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: var(--surface);
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(24, 58, 91, .05);
+      }
+      .big { font-size: 30px; line-height: 1.05; font-weight: 950; }
+      dl { margin: 0; display: grid; gap: 12px; }
+      .info { display: flex; justify-content: space-between; gap: 18px; font-size: 14px; }
+      dt { color: var(--muted); font-weight: 800; }
+      dd { margin: 0; text-align: right; font-weight: 950; text-transform: capitalize; }
+
+      .hidden { display: none; }
+
+      @media (max-width: 880px) {
+        .nav { display: none; }
+        main { padding: 18px 14px 42px; }
+        .hero-top, .content, .custom-grid { grid-template-columns: 1fr; }
+        .stats { grid-template-columns: 1fr 1fr; padding: 18px; }
+        .stat strong { font-size: 27px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-inner">
+        <div class="brand"><span class="brand-mark">~</span><span>AllCoast</span></div>
+        <nav class="nav">
+          <span class="active">Forecast</span>
+          <span>Favorites</span>
+          <span>Spots</span>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <p class="eyebrow">AllCoast surf report</p>
+            <h1 id="spotName">Surf forecast</h1>
+            <p class="sub" id="spotMeta">Choose a break</p>
+          </div>
+          <div>
+            <label>
+              <span class="label">Find a spot</span>
+              <input class="field" id="spotSearch" placeholder="Search breaks" autocomplete="off" />
+            </label>
+            <div class="spots" id="spotList"></div>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="icon">~</div><strong id="surfStat">- ft</strong><span>Surf</span></div>
+          <div class="stat"><div class="icon">*</div><strong id="ratingStat">-/5</strong><span>Rating</span></div>
+          <div class="stat"><div class="icon">Wind</div><strong id="windStat">-</strong><span>Wind</span></div>
+          <div class="stat"><div class="icon">Best</div><strong id="bestStat">-</strong><span>Window</span></div>
+        </div>
+
+        <div class="days" id="days"></div>
+      </section>
+
+      <section class="custom">
+        <form class="custom-grid" id="customForm">
+          <div>
+            <p class="eyebrow">Custom coast</p>
+            <h2>Forecast any break</h2>
+            <p class="helper">Drop in coordinates when the spot is not in the saved list.</p>
+          </div>
+          <label><span class="label">Spot name</span><input class="field" id="customName" placeholder="Local break" /></label>
+          <label><span class="label">Latitude</span><input class="field" id="customLat" inputmode="decimal" placeholder="34.03" /></label>
+          <label><span class="label">Longitude</span><input class="field" id="customLng" inputmode="decimal" placeholder="-118.68" /></label>
+          <button class="primary" id="customButton">Forecast</button>
+        </form>
+      </section>
+
+      <div class="error hidden" id="errorBox"></div>
+
+      <section class="content hidden" id="forecastContent">
+        <div class="panel table-wrap">
+          <div class="table">
+            <div class="table-head"><span>Time</span><span>Rating</span><span>Swell</span><span>Period</span><span>Wind</span></div>
+            <div id="forecastRows"></div>
+          </div>
+        </div>
+
+        <aside>
+          <div class="side">
+            <h3>Best Window</h3>
+            <div class="big" id="bestWindow">-</div>
+            <p class="sub" id="bestSummary">Loading forecast.</p>
+          </div>
+          <div class="side">
+            <h3>Spot Notes</h3>
+            <dl id="spotNotes"></dl>
+            <p class="helper" id="spotNoteText" style="margin-top: 16px;"></p>
+          </div>
+          <div class="side">
+            <h3>Tide</h3>
+            <dl id="tideInfo"></dl>
+            <p class="helper" id="tideNote" style="margin-top: 16px;"></p>
+          </div>
+          <div class="side">
+            <h3>Data</h3>
+            <dl id="dataInfo"></dl>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      const state = { spots: [], spotId: "malibu", forecast: null, activeDay: "" };
+      const $ = (id) => document.getElementById(id);
+
+      const dayFormatter = new Intl.DateTimeFormat([], { weekday: "short", month: "short", day: "numeric" });
+      const hourFormatter = new Intl.DateTimeFormat([], { hour: "numeric" });
+
+      init();
+
+      async function init() {
+        $("spotSearch").addEventListener("input", renderSpotList);
+        $("customForm").addEventListener("submit", loadCustomForecast);
+        await loadSpots();
+        await loadForecast({ spotId: state.spotId });
+      }
+
+      async function loadSpots() {
+        try {
+          const response = await fetch("/api/spots");
+          const data = await response.json();
+          state.spots = data.spots || [];
+          renderSpotList();
+        } catch {
+          showError("Spots could not be loaded.");
+        }
+      }
+
+      async function loadForecast(params) {
+        showError("");
+        setLoading(true);
+        try {
+          const query = new URLSearchParams(params);
+          const response = await fetch(`/api/forecast?${query.toString()}`);
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Forecast could not be loaded.");
+          state.forecast = data.forecast;
+          state.activeDay = dayKey(state.forecast.hours[0]?.time || new Date().toISOString());
+          renderForecast();
+        } catch (error) {
+          showError(error.message || "Forecast could not be loaded.");
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      function renderSpotList() {
+        const query = $("spotSearch").value.trim().toLowerCase();
+        const spots = query
+          ? state.spots.filter((spot) => `${spot.name} ${spot.region}`.toLowerCase().includes(query))
+          : state.spots;
+
+        $("spotList").innerHTML = spots.map((spot) => (
+          `<button class="chip ${spot.id === state.spotId ? "active" : ""}" data-spot-id="${spot.id}">${spot.name}</button>`
+        )).join("");
+
+        document.querySelectorAll("[data-spot-id]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.spotId = button.dataset.spotId;
+            loadForecast({ spotId: state.spotId });
+            renderSpotList();
+          });
+        });
+      }
+
+      function renderForecast() {
+        const forecast = state.forecast;
+        if (!forecast) return;
+        const hours = forecast.hours || [];
+        const dayHours = hours.filter((hour) => dayKey(hour.time) === state.activeDay);
+        const visibleHours = dayHours.length ? dayHours : hours.slice(0, 12);
+        const best = [...visibleHours].sort((a, b) => b.score - a.score)[0] || forecast.current;
+
+        $("forecastContent").classList.remove("hidden");
+        $("spotName").textContent = forecast.spot.name;
+        $("spotMeta").textContent = `${forecast.spot.region} - ${forecast.spot.breakType}`;
+        $("surfStat").textContent = surfRange(visibleHours);
+        $("ratingStat").textContent = best ? `${starCount(best.score)}/5` : "-/5";
+        $("windStat").textContent = best?.windSpeedMph == null ? "-" : `${Math.round(best.windSpeedMph)} mph ${direction(best.windDirectionDegrees)}`;
+        $("bestStat").textContent = forecast.bestWindow || "-";
+        $("bestWindow").textContent = forecast.bestWindow || "-";
+        $("bestSummary").textContent = best?.summary || "No forecast window available.";
+
+        renderDays(hours);
+        $("forecastRows").innerHTML = visibleHours.map(renderRow).join("");
+        $("spotNotes").innerHTML = [
+          info("Break", forecast.spot.breakType),
+          info("Ideal size", `${forecast.spot.idealWaveHeightFeet[0]}-${forecast.spot.idealWaveHeightFeet[1]} ft`),
+          info("Swell", forecast.spot.bestSwellDirections.map(direction).join(", ")),
+          info("Wind", forecast.spot.bestWindDirections.map(direction).join(", ")),
+        ].join("");
+        $("spotNoteText").textContent = forecast.spot.note || "";
+        $("tideInfo").innerHTML = [
+          info("Ideal tide", forecast.tide.idealRangeFeet ? `${forecast.tide.idealRangeFeet[0]}-${forecast.tide.idealRangeFeet[1]} ft` : "Spot dependent"),
+          info("Station", forecast.tide.stationId || "Pending"),
+          ...(forecast.tide.predictions || []).slice(0, 3).map((prediction) => info(prediction.type, `${formatTideTime(prediction.time)} - ${prediction.heightFeet == null ? "-" : prediction.heightFeet.toFixed(1) + " ft"}`)),
+        ].join("");
+        $("tideNote").textContent = forecast.tide.note || "";
+        $("dataInfo").innerHTML = [
+          info("Forecast", forecast.source),
+          info("Updated", new Date(forecast.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })),
+        ].join("");
+      }
+
+      function renderDays(hours) {
+        const seen = new Set();
+        const days = hours.filter((hour) => {
+          const key = dayKey(hour.time);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }).slice(0, 3);
+
+        $("days").innerHTML = days.map((hour) => {
+          const key = dayKey(hour.time);
+          return `<button class="day ${key === state.activeDay ? "active" : ""}" data-day="${key}">${dayFormatter.format(new Date(hour.time))}</button>`;
+        }).join("") + `<p class="recommendation">${state.forecast.recommendation || ""}</p>`;
+
+        document.querySelectorAll("[data-day]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.activeDay = button.dataset.day;
+            renderForecast();
+          });
+        });
+      }
+
+      function renderRow(hour) {
+        return `
+          <div class="row">
+            <div>${hourFormatter.format(new Date(hour.time))}<span class="small">${hour.rating}</span></div>
+            <div class="bars">${ratingBars(hour.score)}</div>
+            <div>${feet(hour.waveHeightFeet)} at ${direction(hour.swellDirectionDegrees)}<span class="small">Primary swell ${feet(hour.swellHeightFeet)}</span></div>
+            <div>${hour.swellPeriodSeconds == null ? "?" : hour.swellPeriodSeconds.toFixed(0)} sec</div>
+            <div>${hour.windSpeedMph == null ? "?" : Math.round(hour.windSpeedMph)} mph<span class="small">${direction(hour.windDirectionDegrees)}</span></div>
+          </div>
+        `;
+      }
+
+      async function loadCustomForecast(event) {
+        event.preventDefault();
+        const latitude = Number($("customLat").value);
+        const longitude = Number($("customLng").value);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          showError("Enter a valid latitude and longitude.");
+          return;
+        }
+        await loadForecast({
+          latitude: String(latitude),
+          longitude: String(longitude),
+          name: $("customName").value.trim() || "Custom spot",
+        });
+      }
+
+      function setLoading(loading) {
+        $("customButton").disabled = loading;
+      }
+
+      function showError(message) {
+        $("errorBox").textContent = message;
+        $("errorBox").classList.toggle("hidden", !message);
+      }
+
+      function ratingBars(score) {
+        const count = starCount(score);
+        return [0, 1, 2, 3, 4].map((index) => `<i class="${index < count ? "on" : ""}"></i>`).join("");
+      }
+
+      function info(label, value) {
+        return `<div class="info"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value ?? "-"))}</dd></div>`;
+      }
+
+      function surfRange(hours) {
+        const values = hours.map((hour) => hour.waveHeightFeet).filter((value) => typeof value === "number");
+        if (!values.length) return "- ft";
+        const min = Math.floor(Math.min(...values));
+        const max = Math.ceil(Math.max(...values));
+        return min === max ? `${max} ft` : `${min}-${max} ft`;
+      }
+
+      function starCount(score) {
+        return Math.max(1, Math.min(5, Math.round(score / 2)));
+      }
+
+      function dayKey(value) {
+        return new Date(value).toISOString().slice(0, 10);
+      }
+
+      function feet(value) {
+        return value == null ? "? ft" : `${Number(value).toFixed(1)} ft`;
+      }
+
+      function direction(value) {
+        if (value == null) return "?";
+        const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+        return directions[Math.round(value / 45) % 8];
+      }
+
+      function formatTideTime(value) {
+        if (!value) return "-";
+        const normalized = value.includes("T") ? value : value.replace(" ", "T");
+        const date = new Date(normalized);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      }
+
+      function escapeHtml(value) {
+        return value.replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "\"": "&quot;",
+          "'": "&#039;",
+        })[char]);
+      }
+    </script>
+  </body>
+</html>

@@ -1,45 +1,47 @@
 # AllCoast
 
-AllCoast is a clean surf forecasting web app for swell, wind, tides, and spot quality. It is built as a simple React + Vite frontend with a small Node/Express forecast server.
+AllCoast is a surf forecasting web app. It shows a clean surf report with spot search, surf rating, swell, wind, best window, tide predictions, spot rules, and hourly forecast rows.
 
-## What It Does
-
-- Shows surf height, swell direction, swell period, wind, tide, best window, and spot notes
-- Includes saved spot search and favorites
-- Supports custom latitude/longitude forecasts
-- Uses free forecast sources with no API keys required
-
-## Forecast Sources
+## Data Sources
 
 - Wave and swell forecast: Open-Meteo Marine API
 - Wind forecast: Open-Meteo Weather API
 - Tide predictions: NOAA CO-OPS Tides and Currents
 
-## Local Setup
+No API keys are required for the forecast app.
+
+## Setup
+
+1. Install dependencies with `npm install`.
+2. Run the app locally with `npm run dev`.
+3. Open `http://localhost:3000`.
+
+For a production-style local run:
 
 ```bash
-npm install
-npm run dev
+npm run build
+npm start
 ```
 
-Then open:
+`npm run build` is intentionally a no-op for this version. The app is served directly by Node, which avoids Vite/esbuild deployment failures.
 
-```text
-http://localhost:3000
+## Render Deploy
+
+Use these settings if you create a Render Web Service manually:
+
+- Build command: `npm install && npm run build`
+- Start command: `npm start`
+- Health check path: `/api/status`
+
+The repo also includes `render.yaml` with the same settings.
+
+## Checks
+
+```bash
+npm run lint
+npm run build
 ```
 
-## Render Setup
+## Notes
 
-Create a new Render Web Service from the GitHub repo and use:
-
-```text
-Build Command: npm install && npm run build
-Start Command: npm start
-Health Check Path: /api/status
-```
-
-Node is pinned to version 20 through `package.json` and `.node-version`.
-
-## Add Or Tune Surf Spots
-
-Edit `lib/forecast.ts`. Each spot has coordinates, ideal wave height, tide station, best swell directions, best wind directions, break type, and local notes.
+Spot profiles live in `lib/forecast.ts`. Add or tune breaks there with latitude, longitude, ideal swell direction, ideal wind direction, tide station, and ideal wave size.
