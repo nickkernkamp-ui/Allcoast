@@ -14,6 +14,15 @@ export interface SurfSpot {
   bestWindDirections: number[];
   breakType: string;
   note: string;
+  surfHeightCalibration?: SurfHeightCalibration;
+}
+
+export interface SurfHeightCalibration {
+  exposedSwellDirections: [number, number];
+  breakingWaveMultiplier: number;
+  offAngleMultiplier: number;
+  partialAngleMultiplier: number;
+  maxOffAngleFeet?: number;
 }
 
 export interface TideSummary {
@@ -71,6 +80,12 @@ export const SPOTS: SurfSpot[] = [
     bestWindDirections: [20, 45, 70],
     breakType: "right point",
     note: "Best on clean south to southwest swell with light offshore or calm wind.",
+    surfHeightCalibration: {
+      exposedSwellDirections: [160, 245],
+      breakingWaveMultiplier: 0.9,
+      offAngleMultiplier: 0.35,
+      partialAngleMultiplier: 0.65,
+    },
   },
   {
     id: "lowers",
@@ -86,6 +101,12 @@ export const SPOTS: SurfSpot[] = [
     bestWindDirections: [45, 70, 90],
     breakType: "cobblestone peak",
     note: "Likes longer-period south and southwest swell with light morning wind.",
+    surfHeightCalibration: {
+      exposedSwellDirections: [175, 250],
+      breakingWaveMultiplier: 0.95,
+      offAngleMultiplier: 0.45,
+      partialAngleMultiplier: 0.7,
+    },
   },
   {
     id: "huntington",
@@ -101,6 +122,12 @@ export const SPOTS: SurfSpot[] = [
     bestWindDirections: [35, 60, 80],
     breakType: "beach break",
     note: "Can handle mixed swell, but wind texture changes the score quickly.",
+    surfHeightCalibration: {
+      exposedSwellDirections: [165, 285],
+      breakingWaveMultiplier: 0.9,
+      offAngleMultiplier: 0.5,
+      partialAngleMultiplier: 0.75,
+    },
   },
   {
     id: "ocean-beach-sf",
@@ -116,6 +143,12 @@ export const SPOTS: SurfSpot[] = [
     bestWindDirections: [70, 90, 110],
     breakType: "powerful beach break",
     note: "Needs manageable size, organized period, and clean wind to really line up.",
+    surfHeightCalibration: {
+      exposedSwellDirections: [245, 325],
+      breakingWaveMultiplier: 0.95,
+      offAngleMultiplier: 0.35,
+      partialAngleMultiplier: 0.65,
+    },
   },
   {
     id: "pipeline",
@@ -131,6 +164,13 @@ export const SPOTS: SurfSpot[] = [
     bestWindDirections: [90, 110, 130],
     breakType: "reef break",
     note: "Rewards northwest energy and clean easterly trade wind.",
+    surfHeightCalibration: {
+      exposedSwellDirections: [285, 350],
+      breakingWaveMultiplier: 0.8,
+      offAngleMultiplier: 0.12,
+      partialAngleMultiplier: 0.35,
+      maxOffAngleFeet: 1,
+    },
   },
 ];
 
@@ -171,16 +211,18 @@ export function resolveSpot(input: ForecastInput): SurfSpot {
 
 export function buildForecast(spot: SurfSpot, marine: RawHourly, weather: RawHourly, now = new Date(), tidePredictions: TidePrediction[] | null = null): SurfForecast {
   const marineHours = marine.time ?? [];
-  const weatherByTime = new Map((weather.time ?? []).map((time, index) => [time, index]));
+  const weatherTimes = weather.time ?? [];
   const hours = marineHours
     .map((time, index) => {
-      const weatherIndex = weatherByTime.get(time);
+      const weatherIndex = findNearestWeatherIndex(time, weatherTimes);
+      const offshoreWaveHeightFeet = readNumber(marine.wave_height, index);
+      const swellDirectionDegrees = readNumber(marine.swell_wave_direction, index) ?? readNumber(marine.wave_direction, index);
       return scoreHour(spot, {
         time,
-        waveHeightFeet: readNumber(marine.wave_height, index),
+        waveHeightFeet: estimateBreakingSurfHeight(spot, offshoreWaveHeightFeet, swellDirectionDegrees),
         swellHeightFeet: readNumber(marine.swell_wave_height, index),
         swellPeriodSeconds: readNumber(marine.swell_wave_period, index) ?? readNumber(marine.wave_period, index),
-        swellDirectionDegrees: readNumber(marine.swell_wave_direction, index) ?? readNumber(marine.wave_direction, index),
+        swellDirectionDegrees,
         windSpeedMph: weatherIndex == null ? null : readNumber(weather.wind_speed_10m, weatherIndex),
         windGustMph: weatherIndex == null ? null : readNumber(weather.wind_gusts_10m, weatherIndex),
         windDirectionDegrees: weatherIndex == null ? null : readNumber(weather.wind_direction_10m, weatherIndex),
@@ -207,9 +249,64 @@ export function buildForecast(spot: SurfSpot, marine: RawHourly, weather: RawHou
       note: spot.tideNote,
       predictions: tidePredictions ?? [],
     },
-    source: "Open-Meteo marine and weather forecasts",
+    source: "Open-Meteo marine and weather forecasts with spot exposure adjustment",
     recommendation: buildRecommendation(spot, best ?? current),
   };
+}
+
+function findNearestWeatherIndex(marineTime: string, weatherTimes: string[]) {
+  if (!weatherTimes.length) return undefined;
+  const exactIndex = weatherTimes.indexOf(marineTime);
+  if (exactIndex >= 0) return exactIndex;
+
+  const marineMs = new Date(marineTime).getTime();
+  if (!Number.isFinite(marineMs)) return undefined;
+
+  let nearestIndex = -1;
+  let nearestDiff = Number.POSITIVE_INFINITY;
+  weatherTimes.forEach((weatherTime, index) => {
+    const weatherMs = new Date(weatherTime).getTime();
+    if (!Number.isFinite(weatherMs)) return;
+    const diff = Math.abs(weatherMs - marineMs);
+    if (diff < nearestDiff) {
+      nearestDiff = diff;
+      nearestIndex = index;
+    }
+  });
+
+  return nearestDiff <= 90 * 60 * 1000 ? nearestIndex : undefined;
+}
+
+function estimateBreakingSurfHeight(spot: SurfSpot, offshoreHeight: number | null, swellDirection: number | null) {
+  if (offshoreHeight == null) return null;
+  const calibration = spot.surfHeightCalibration;
+  if (!calibration || swellDirection == null) return round(offshoreHeight, 1);
+
+  const exposure = directionExposure(swellDirection, calibration.exposedSwellDirections);
+  const multiplier =
+    exposure === "exposed"
+      ? calibration.breakingWaveMultiplier
+      : exposure === "partial"
+        ? calibration.partialAngleMultiplier
+        : calibration.offAngleMultiplier;
+  const capped = exposure === "blocked" && calibration.maxOffAngleFeet != null
+    ? Math.min(offshoreHeight * multiplier, calibration.maxOffAngleFeet)
+    : offshoreHeight * multiplier;
+
+  return round(capped, 1);
+}
+
+function directionExposure(direction: number, range: [number, number]) {
+  if (directionInRange(direction, range)) return "exposed";
+  const distanceToWindow = Math.min(angleDiff(direction, range[0]), angleDiff(direction, range[1]));
+  if (distanceToWindow <= 35) return "partial";
+  return "blocked";
+}
+
+function directionInRange(direction: number, [start, end]: [number, number]) {
+  const normalized = ((direction % 360) + 360) % 360;
+  if (start <= end) return normalized >= start && normalized <= end;
+  return normalized >= start || normalized <= end;
 }
 
 function scoreHour(spot: SurfSpot, hour: Omit<ForecastHour, "score" | "rating" | "summary">): ForecastHour {

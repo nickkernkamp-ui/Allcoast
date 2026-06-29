@@ -79,7 +79,7 @@ async function fetchWeatherForecast(spot: { latitude: number; longitude: number 
   const params = new URLSearchParams({
     latitude: String(spot.latitude),
     longitude: String(spot.longitude),
-    hourly: ["wind_speed_10m", "wind_direction_10m", "wind_gusts_10m"].join(","),
+    hourly: ["wind_speed_10m", "wind_direction_10m"].join(","),
     timezone: "auto",
     forecast_days: "3",
     wind_speed_unit: "mph",

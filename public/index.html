@@ -84,7 +84,7 @@
         padding: 24px 18px 52px;
       }
 
-      .hero, .panel, .custom {
+      .hero, .panel {
         border: 1px solid var(--line);
         background: var(--surface);
         box-shadow: 0 14px 36px rgba(24, 58, 91, .06);
@@ -221,19 +221,6 @@
         line-height: 1.65;
       }
 
-      .custom {
-        margin-top: 18px;
-        border-radius: 22px;
-        padding: 20px;
-      }
-
-      .custom-grid {
-        display: grid;
-        grid-template-columns: 280px 1fr 1fr 1fr auto;
-        gap: 12px;
-        align-items: end;
-      }
-
       .helper { color: var(--muted); font-size: 14px; font-weight: 750; line-height: 1.5; }
       .primary {
         border: 1px solid var(--blue);
@@ -318,7 +305,7 @@
       @media (max-width: 880px) {
         .nav { display: none; }
         main { padding: 18px 14px 42px; }
-        .hero-top, .content, .custom-grid { grid-template-columns: 1fr; }
+        .hero-top, .content { grid-template-columns: 1fr; }
         .stats { grid-template-columns: 1fr 1fr; padding: 18px; }
         .stat strong { font-size: 27px; }
       }
@@ -361,20 +348,6 @@
         </div>
 
         <div class="days" id="days"></div>
-      </section>
-
-      <section class="custom">
-        <form class="custom-grid" id="customForm">
-          <div>
-            <p class="eyebrow">Custom coast</p>
-            <h2>Forecast any break</h2>
-            <p class="helper">Drop in coordinates when the spot is not in the saved list.</p>
-          </div>
-          <label><span class="label">Spot name</span><input class="field" id="customName" placeholder="Local break" /></label>
-          <label><span class="label">Latitude</span><input class="field" id="customLat" inputmode="decimal" placeholder="34.03" /></label>
-          <label><span class="label">Longitude</span><input class="field" id="customLng" inputmode="decimal" placeholder="-118.68" /></label>
-          <button class="primary" id="customButton">Forecast</button>
-        </form>
       </section>
 
       <div class="error hidden" id="errorBox"></div>
@@ -422,7 +395,6 @@
 
       async function init() {
         $("spotSearch").addEventListener("input", renderSpotList);
-        $("customForm").addEventListener("submit", loadCustomForecast);
         await loadSpots();
         await loadForecast({ spotId: state.spotId });
       }
@@ -548,23 +520,10 @@
         `;
       }
 
-      async function loadCustomForecast(event) {
-        event.preventDefault();
-        const latitude = Number($("customLat").value);
-        const longitude = Number($("customLng").value);
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-          showError("Enter a valid latitude and longitude.");
-          return;
-        }
-        await loadForecast({
-          latitude: String(latitude),
-          longitude: String(longitude),
-          name: $("customName").value.trim() || "Custom spot",
-        });
-      }
-
       function setLoading(loading) {
-        $("customButton").disabled = loading;
+        document.querySelectorAll("[data-spot-id]").forEach((button) => {
+          button.disabled = loading;
+        });
       }
 
       function showError(message) {

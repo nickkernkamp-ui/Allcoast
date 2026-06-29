@@ -1,6 +1,6 @@
 # AllCoast
 
-AllCoast is a surf forecasting web app. It shows a clean surf report with spot search, surf rating, swell, wind, best window, tide predictions, spot rules, and hourly forecast rows.
+AllCoast is a surf forecasting web app. It shows a clean surf report with spot search, surf rating, swell, wind, best window, tide predictions, spot rules, and hourly forecast rows. Surf height is adjusted by local spot exposure so places like Pipeline do not show offshore swell as breaking surf when the direction is blocked.
 
 ## Data Sources
 
@@ -44,4 +44,4 @@ npm run build
 
 ## Notes
 
-Spot profiles live in `lib/forecast.ts`. Add or tune breaks there with latitude, longitude, ideal swell direction, ideal wind direction, tide station, and ideal wave size.
+Spot profiles live in `lib/forecast.ts`. Add or tune breaks there with coordinates, ideal swell direction, ideal wind direction, tide station, ideal wave size, and local surf-height exposure rules. Users choose named spots in the app.
