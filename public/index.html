@@ -69,8 +69,10 @@
       }
 
       .nav { display: flex; align-items: center; gap: 8px; }
-      .nav span {
+      .nav button {
         border-radius: 999px;
+        border: 0;
+        background: transparent;
         padding: 10px 14px;
         color: var(--muted);
         font-size: 14px;
@@ -155,7 +157,7 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 8px;
-        max-height: 132px;
+        max-height: 260px;
         margin-top: 12px;
         overflow: auto;
         padding-right: 2px;
@@ -185,9 +187,33 @@
         color: #fff;
       }
 
+      .spot-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .pill-button {
+        min-height: 42px;
+        border: 1px solid #d8e4ed;
+        border-radius: 999px;
+        background: #fff;
+        color: #5f7182;
+        padding: 0 14px;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .pill-button.active {
+        border-color: #b7dfff;
+        background: #e8f5ff;
+        color: var(--blue);
+      }
+
       .stats {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 14px;
         padding: 24px 28px;
       }
@@ -316,9 +342,9 @@
       <div class="header-inner">
         <div class="brand"><span class="brand-mark">~</span><span>AllCoast</span></div>
         <nav class="nav">
-          <span class="active">Forecast</span>
-          <span>Favorites</span>
-          <span>Spots</span>
+          <button class="active" id="forecastNav">Forecast</button>
+          <button id="favoritesNav">Favorites</button>
+          <button id="spotsNav">Spots</button>
         </nav>
       </div>
     </header>
@@ -330,6 +356,10 @@
             <p class="eyebrow">AllCoast surf report</p>
             <h1 id="spotName">Surf forecast</h1>
             <p class="sub" id="spotMeta">Choose a break</p>
+            <div class="spot-tools">
+              <button class="pill-button" id="favoriteButton">Save favorite</button>
+              <button class="pill-button" id="favoritesToggle">Show favorites</button>
+            </div>
           </div>
           <div>
             <label>
@@ -344,6 +374,7 @@
           <div class="stat"><div class="icon">~</div><strong id="surfStat">- ft</strong><span>Surf</span></div>
           <div class="stat"><div class="icon">*</div><strong id="ratingStat">-/5</strong><span>Rating</span></div>
           <div class="stat"><div class="icon">Wind</div><strong id="windStat">-</strong><span>Wind</span></div>
+          <div class="stat"><div class="icon">Tide</div><strong id="tideStat">-</strong><span>Next Tide</span></div>
           <div class="stat"><div class="icon">Best</div><strong id="bestStat">-</strong><span>Window</span></div>
         </div>
 
@@ -385,7 +416,14 @@
     </main>
 
     <script>
-      const state = { spots: [], spotId: "malibu", forecast: null, activeDay: "" };
+      const state = {
+        spots: [],
+        spotId: "malibu",
+        forecast: null,
+        activeDay: "",
+        showingFavorites: false,
+        favorites: readFavorites(),
+      };
       const $ = (id) => document.getElementById(id);
 
       const dayFormatter = new Intl.DateTimeFormat([], { weekday: "short", month: "short", day: "numeric" });
@@ -395,6 +433,28 @@
 
       async function init() {
         $("spotSearch").addEventListener("input", renderSpotList);
+        $("favoriteButton").addEventListener("click", toggleFavorite);
+        $("favoritesToggle").addEventListener("click", () => {
+          state.showingFavorites = !state.showingFavorites;
+          renderSpotList();
+          renderFavoriteControls();
+        });
+        $("favoritesNav").addEventListener("click", () => {
+          state.showingFavorites = true;
+          renderSpotList();
+          renderFavoriteControls();
+        });
+        $("forecastNav").addEventListener("click", () => {
+          state.showingFavorites = false;
+          renderSpotList();
+          renderFavoriteControls();
+        });
+        $("spotsNav").addEventListener("click", () => {
+          state.showingFavorites = false;
+          $("spotSearch").focus();
+          renderSpotList();
+          renderFavoriteControls();
+        });
         await loadSpots();
         await loadForecast({ spotId: state.spotId });
       }
@@ -430,12 +490,20 @@
 
       function renderSpotList() {
         const query = $("spotSearch").value.trim().toLowerCase();
-        const spots = query
-          ? state.spots.filter((spot) => `${spot.name} ${spot.region}`.toLowerCase().includes(query))
+        const baseSpots = state.showingFavorites
+          ? state.spots.filter((spot) => state.favorites.includes(spot.id))
           : state.spots;
+        const spots = query
+          ? baseSpots.filter((spot) => `${spot.name} ${spot.region}`.toLowerCase().includes(query))
+          : baseSpots;
+
+        if (state.showingFavorites && !spots.length) {
+          $("spotList").innerHTML = `<div class="helper" style="grid-column: 1 / -1; padding: 8px 2px;">No favorites saved yet.</div>`;
+          return;
+        }
 
         $("spotList").innerHTML = spots.map((spot) => (
-          `<button class="chip ${spot.id === state.spotId ? "active" : ""}" data-spot-id="${spot.id}">${spot.name}</button>`
+          `<button class="chip ${spot.id === state.spotId ? "active" : ""}" data-spot-id="${spot.id}">${state.favorites.includes(spot.id) ? "* " : ""}${spot.name}<span class="small">${spot.region}</span></button>`
         )).join("");
 
         document.querySelectorAll("[data-spot-id]").forEach((button) => {
@@ -461,6 +529,7 @@
         $("surfStat").textContent = surfRange(visibleHours);
         $("ratingStat").textContent = best ? `${starCount(best.score)}/5` : "-/5";
         $("windStat").textContent = best?.windSpeedMph == null ? "-" : `${Math.round(best.windSpeedMph)} mph ${direction(best.windDirectionDegrees)}`;
+        $("tideStat").textContent = nextTideLabel(forecast.tide.predictions || []);
         $("bestStat").textContent = forecast.bestWindow || "-";
         $("bestWindow").textContent = forecast.bestWindow || "-";
         $("bestSummary").textContent = best?.summary || "No forecast window available.";
@@ -484,6 +553,29 @@
           info("Forecast", forecast.source),
           info("Updated", new Date(forecast.generatedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })),
         ].join("");
+        renderFavoriteControls();
+      }
+
+      function toggleFavorite() {
+        const id = state.forecast?.spot?.id || state.spotId;
+        if (!id) return;
+        state.favorites = state.favorites.includes(id)
+          ? state.favorites.filter((favoriteId) => favoriteId !== id)
+          : [id, ...state.favorites];
+        localStorage.setItem("allcoast-favorites", JSON.stringify(state.favorites));
+        renderSpotList();
+        renderFavoriteControls();
+      }
+
+      function renderFavoriteControls() {
+        const id = state.forecast?.spot?.id || state.spotId;
+        const saved = state.favorites.includes(id);
+        $("favoriteButton").textContent = saved ? "Saved favorite" : "Save favorite";
+        $("favoriteButton").classList.toggle("active", saved);
+        $("favoritesToggle").textContent = state.showingFavorites ? "Show all spots" : "Show favorites";
+        $("favoritesToggle").classList.toggle("active", state.showingFavorites);
+        $("favoritesNav").classList.toggle("active", state.showingFavorites);
+        $("forecastNav").classList.toggle("active", !state.showingFavorites);
       }
 
       function renderDays(hours) {
@@ -574,6 +666,23 @@
         return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       }
 
+      function nextTideLabel(predictions) {
+        const now = Date.now();
+        const next = predictions
+          .map((prediction) => ({ ...prediction, ms: tideTimeMs(prediction.time) }))
+          .filter((prediction) => Number.isFinite(prediction.ms) && prediction.ms >= now)
+          .sort((a, b) => a.ms - b.ms)[0] || predictions[0];
+        if (!next) return "-";
+        const height = next.heightFeet == null ? "" : ` ${Number(next.heightFeet).toFixed(1)} ft`;
+        return `${next.type}${height}`;
+      }
+
+      function tideTimeMs(value) {
+        if (!value) return NaN;
+        const normalized = value.includes("T") ? value : value.replace(" ", "T");
+        return new Date(normalized).getTime();
+      }
+
       function escapeHtml(value) {
         return value.replace(/[&<>"']/g, (char) => ({
           "&": "&amp;",
@@ -582,6 +691,15 @@
           "\"": "&quot;",
           "'": "&#039;",
         })[char]);
+      }
+
+      function readFavorites() {
+        try {
+          const value = JSON.parse(localStorage.getItem("allcoast-favorites") || "[]");
+          return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+        } catch {
+          return [];
+        }
       }
     </script>
   </body>
