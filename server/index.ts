@@ -40,9 +40,10 @@ app.get("/api/forecast", async (request, response) => {
 
 async function fetchMarineForecast(spot: { latitude: number; longitude: number }) {
   const attempts = [
-    { cellSelection: "sea", imperial: true },
-    { cellSelection: "nearest", imperial: true },
-    { cellSelection: "nearest", imperial: false },
+    { cellSelection: "sea", imperial: true, components: true },
+    { cellSelection: "nearest", imperial: true, components: true },
+    { cellSelection: "nearest", imperial: true, components: false },
+    { cellSelection: "nearest", imperial: false, components: false },
   ];
   const errors: string[] = [];
 
@@ -51,14 +52,7 @@ async function fetchMarineForecast(spot: { latitude: number; longitude: number }
       const params = new URLSearchParams({
         latitude: String(spot.latitude),
         longitude: String(spot.longitude),
-        hourly: [
-          "wave_height",
-          "wave_direction",
-          "wave_period",
-          "swell_wave_height",
-          "swell_wave_direction",
-          "swell_wave_period",
-        ].join(","),
+        hourly: marineHourlyVariables(attempt.components).join(","),
         timezone: "auto",
         forecast_days: "3",
         cell_selection: attempt.cellSelection,
@@ -75,11 +69,37 @@ async function fetchMarineForecast(spot: { latitude: number; longitude: number }
   throw new Error(`Live wave data is not available for this spot right now. ${errors[errors.length - 1] ?? "Try refreshing or choosing another spot."}`);
 }
 
+function marineHourlyVariables(includeComponents: boolean) {
+  const base = [
+    "wave_height",
+    "wave_direction",
+    "wave_period",
+    "swell_wave_height",
+    "swell_wave_direction",
+    "swell_wave_period",
+  ];
+
+  if (!includeComponents) return base;
+
+  return [
+    ...base,
+    "wind_wave_height",
+    "wind_wave_direction",
+    "wind_wave_period",
+    "secondary_swell_wave_height",
+    "secondary_swell_wave_direction",
+    "secondary_swell_wave_period",
+    "tertiary_swell_wave_height",
+    "tertiary_swell_wave_direction",
+    "tertiary_swell_wave_period",
+  ];
+}
+
 async function fetchWeatherForecast(spot: { latitude: number; longitude: number }) {
   const params = new URLSearchParams({
     latitude: String(spot.latitude),
     longitude: String(spot.longitude),
-    hourly: ["wind_speed_10m", "wind_direction_10m"].join(","),
+    hourly: ["wind_speed_10m", "wind_direction_10m", "wind_gusts_10m"].join(","),
     timezone: "auto",
     forecast_days: "3",
     wind_speed_unit: "mph",
@@ -116,7 +136,10 @@ function convertMarineMetersToFeet(data: { hourly?: Record<string, unknown> }) {
     hourly: {
       ...hourly,
       wave_height: convertArrayMetersToFeet(hourly.wave_height),
+      wind_wave_height: convertArrayMetersToFeet(hourly.wind_wave_height),
       swell_wave_height: convertArrayMetersToFeet(hourly.swell_wave_height),
+      secondary_swell_wave_height: convertArrayMetersToFeet(hourly.secondary_swell_wave_height),
+      tertiary_swell_wave_height: convertArrayMetersToFeet(hourly.tertiary_swell_wave_height),
     },
   };
 }

@@ -1,6 +1,6 @@
 # AllCoast
 
-AllCoast is a California surf forecasting web app. It shows a clean surf report with spot search, saved favorites, surf rating, swell, wind, tide predictions, best window, spot rules, and hourly forecast rows. Surf height is adjusted by local spot exposure so raw offshore swell is not treated as breaking surf when the direction is blocked.
+AllCoast is a California surf forecasting web app. It shows a clean surf report with spot search, saved favorites, surf rating, swell mix, wind, tide predictions, best window, spot rules, and hourly forecast rows. Surf height is estimated from swell components and adjusted by local spot exposure so raw offshore swell is not treated as breaking surf when the direction is blocked.
 
 ## Data Sources
 
@@ -9,6 +9,10 @@ AllCoast is a California surf forecasting web app. It shows a clean surf report 
 - Tide predictions: NOAA CO-OPS Tides and Currents
 
 No API keys are required for the forecast app.
+
+LOTUS/SURFLINE-style model data is not included because there is no public official LOTUS API in this app. AllCoast uses open forecast sources now and can support a licensed provider later.
+
+The forecast engine requests primary, secondary, tertiary, and wind-swell components where the marine model provides them. Breaking surf height is estimated from those components using spot exposure and period rules.
 
 ## Setup
 

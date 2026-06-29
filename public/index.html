@@ -403,6 +403,18 @@
             <p class="helper" id="spotNoteText" style="margin-top: 16px;"></p>
           </div>
           <div class="side">
+            <h3>Swell Mix</h3>
+            <div class="big" id="breakingSurf">-</div>
+            <p class="helper" id="swellSummary" style="margin-top: 10px;"></p>
+            <dl id="swellMix" style="margin-top: 16px;"></dl>
+          </div>
+          <div class="side">
+            <h3>Wind Forecast</h3>
+            <div class="big" id="windHeadline">-</div>
+            <p class="helper" id="windSummary" style="margin-top: 10px;"></p>
+            <dl id="windInfo" style="margin-top: 16px;"></dl>
+          </div>
+          <div class="side">
             <h3>Tide</h3>
             <dl id="tideInfo"></dl>
             <p class="helper" id="tideNote" style="margin-top: 16px;"></p>
@@ -543,6 +555,8 @@
           info("Wind", forecast.spot.bestWindDirections.map(direction).join(", ")),
         ].join("");
         $("spotNoteText").textContent = forecast.spot.note || "";
+        renderSwellMix(best || visibleHours[0]);
+        renderWindPanel(visibleHours, forecast.spot.bestWindDirections);
         $("tideInfo").innerHTML = [
           info("Ideal tide", forecast.tide.idealRangeFeet ? `${forecast.tide.idealRangeFeet[0]}-${forecast.tide.idealRangeFeet[1]} ft` : "Spot dependent"),
           info("Station", forecast.tide.stationId || "Pending"),
@@ -605,11 +619,57 @@
           <div class="row">
             <div>${hourFormatter.format(new Date(hour.time))}<span class="small">${hour.rating}</span></div>
             <div class="bars">${ratingBars(hour.score)}</div>
-            <div>${feet(hour.waveHeightFeet)} at ${direction(hour.swellDirectionDegrees)}<span class="small">Primary swell ${feet(hour.swellHeightFeet)}</span></div>
+            <div>${feet(hour.waveHeightFeet)} surf<span class="small">${componentSummary(hour.swellComponents)}</span></div>
             <div>${hour.swellPeriodSeconds == null ? "?" : hour.swellPeriodSeconds.toFixed(0)} sec</div>
-            <div>${hour.windSpeedMph == null ? "?" : Math.round(hour.windSpeedMph)} mph<span class="small">${direction(hour.windDirectionDegrees)}</span></div>
+            <div>${hour.windSpeedMph == null ? "?" : Math.round(hour.windSpeedMph)} mph<span class="small">${direction(hour.windDirectionDegrees)}${hour.windGustMph == null ? "" : ` gust ${Math.round(hour.windGustMph)}`}</span></div>
           </div>
         `;
+      }
+
+      function renderSwellMix(hour) {
+        if (!hour) {
+          $("breakingSurf").textContent = "-";
+          $("swellSummary").textContent = "Swell data has not loaded for this window.";
+          $("swellMix").innerHTML = "";
+          return;
+        }
+
+        const components = visibleComponents(hour);
+        $("breakingSurf").textContent = `${feet(hour.waveHeightFeet)} surf`;
+        $("swellSummary").textContent = components.length
+          ? "Breaking surf is estimated from swell components after spot exposure and period adjustments."
+          : "This provider returned only a combined swell read for this window.";
+        $("swellMix").innerHTML = components.length
+          ? components.map((item) => info(item.label, componentText(item))).join("")
+          : info("Combined", `${feet(hour.swellHeightFeet)} ${direction(hour.swellDirectionDegrees)} @ ${hour.swellPeriodSeconds == null ? "?" : hour.swellPeriodSeconds.toFixed(0)} sec`);
+      }
+
+      function renderWindPanel(hours, bestDirections) {
+        const windyHours = hours.filter((hour) => typeof hour.windSpeedMph === "number");
+        const current = windyHours[0];
+        if (!current) {
+          $("windHeadline").textContent = "Wind unavailable";
+          $("windSummary").textContent = "Wind data has not loaded for this spot yet.";
+          $("windInfo").innerHTML = "";
+          return;
+        }
+
+        $("windHeadline").textContent = `${Math.round(current.windSpeedMph)} mph ${direction(current.windDirectionDegrees)}`;
+        $("windSummary").textContent = windRead(current, bestDirections);
+        $("windInfo").innerHTML = windyHours.slice(0, 5).map((hour) => {
+          const gust = hour.windGustMph == null ? "" : `, gust ${Math.round(hour.windGustMph)} mph`;
+          return info(hourFormatter.format(new Date(hour.time)), `${Math.round(hour.windSpeedMph)} mph ${direction(hour.windDirectionDegrees)}${gust}`);
+        }).join("");
+      }
+
+      function windRead(hour, bestDirections) {
+        const speed = hour.windSpeedMph;
+        const diff = bestDirections.length && hour.windDirectionDegrees != null
+          ? Math.min(...bestDirections.map((best) => angleDiff(hour.windDirectionDegrees, best)))
+          : null;
+        const quality = diff == null ? "Wind direction is still loading" : diff <= 35 ? "favorable wind angle" : diff <= 75 ? "workable wind angle" : "unfavorable wind angle";
+        const strength = speed <= 5 ? "light" : speed <= 10 ? "moderate" : speed <= 16 ? "textured" : "strong";
+        return `${capitalize(strength)} ${direction(hour.windDirectionDegrees)} wind with ${quality}.`;
       }
 
       function setLoading(loading) {
@@ -630,6 +690,25 @@
 
       function info(label, value) {
         return `<div class="info"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value ?? "-"))}</dd></div>`;
+      }
+
+      function visibleComponents(hour) {
+        return (hour?.swellComponents || [])
+          .filter((item) => item.heightFeet != null || item.adjustedHeightFeet != null)
+          .sort((a, b) => (b.adjustedHeightFeet || 0) - (a.adjustedHeightFeet || 0));
+      }
+
+      function componentText(component) {
+        const raw = component.heightFeet == null ? "? ft" : `${Number(component.heightFeet).toFixed(1)} ft`;
+        const period = component.periodSeconds == null ? "?" : Number(component.periodSeconds).toFixed(0);
+        const adjusted = component.adjustedHeightFeet == null ? "" : ` -> ${Number(component.adjustedHeightFeet).toFixed(1)} ft surf`;
+        return `${raw} ${direction(component.directionDegrees)} @ ${period} sec${adjusted}`;
+      }
+
+      function componentSummary(components) {
+        const visible = (components || []).filter((item) => item.heightFeet != null).slice(0, 2);
+        if (!visible.length) return "Combined swell read";
+        return visible.map((item) => `${Number(item.heightFeet).toFixed(1)} ft ${direction(item.directionDegrees)}`).join(" + ");
       }
 
       function surfRange(hours) {
@@ -656,6 +735,14 @@
         if (value == null) return "?";
         const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
         return directions[Math.round(value / 45) % 8];
+      }
+
+      function angleDiff(a, b) {
+        return Math.abs((((a - b) % 360) + 540) % 360 - 180);
+      }
+
+      function capitalize(value) {
+        return value ? value[0].toUpperCase() + value.slice(1) : value;
       }
 
       function formatTideTime(value) {

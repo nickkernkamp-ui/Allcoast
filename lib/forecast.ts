@@ -46,11 +46,20 @@ export interface ForecastHour {
   swellHeightFeet: number | null;
   swellPeriodSeconds: number | null;
   swellDirectionDegrees: number | null;
+  swellComponents: SwellComponent[];
   windSpeedMph: number | null;
   windGustMph: number | null;
   windDirectionDegrees: number | null;
   rating: string;
   summary: string;
+}
+
+export interface SwellComponent {
+  label: string;
+  heightFeet: number | null;
+  periodSeconds: number | null;
+  directionDegrees: number | null;
+  adjustedHeightFeet: number | null;
 }
 
 export interface SurfForecast {
@@ -205,9 +214,18 @@ export interface RawHourly {
   wave_height?: Array<number | null>;
   wave_direction?: Array<number | null>;
   wave_period?: Array<number | null>;
+  wind_wave_height?: Array<number | null>;
+  wind_wave_direction?: Array<number | null>;
+  wind_wave_period?: Array<number | null>;
   swell_wave_height?: Array<number | null>;
   swell_wave_direction?: Array<number | null>;
   swell_wave_period?: Array<number | null>;
+  secondary_swell_wave_height?: Array<number | null>;
+  secondary_swell_wave_direction?: Array<number | null>;
+  secondary_swell_wave_period?: Array<number | null>;
+  tertiary_swell_wave_height?: Array<number | null>;
+  tertiary_swell_wave_direction?: Array<number | null>;
+  tertiary_swell_wave_period?: Array<number | null>;
   wind_speed_10m?: Array<number | null>;
   wind_direction_10m?: Array<number | null>;
   wind_gusts_10m?: Array<number | null>;
@@ -225,12 +243,14 @@ export function buildForecast(spot: SurfSpot, marine: RawHourly, weather: RawHou
       const weatherIndex = findNearestWeatherIndex(time, weatherTimes);
       const offshoreWaveHeightFeet = readNumber(marine.wave_height, index);
       const swellDirectionDegrees = readNumber(marine.swell_wave_direction, index) ?? readNumber(marine.wave_direction, index);
+      const swellComponents = buildSwellComponents(spot, marine, index);
       return scoreHour(spot, {
         time,
-        waveHeightFeet: estimateBreakingSurfHeight(spot, offshoreWaveHeightFeet, swellDirectionDegrees),
+        waveHeightFeet: estimateBreakingSurfHeight(spot, offshoreWaveHeightFeet, swellDirectionDegrees, swellComponents),
         swellHeightFeet: readNumber(marine.swell_wave_height, index),
         swellPeriodSeconds: readNumber(marine.swell_wave_period, index) ?? readNumber(marine.wave_period, index),
         swellDirectionDegrees,
+        swellComponents,
         windSpeedMph: weatherIndex == null ? null : readNumber(weather.wind_speed_10m, weatherIndex),
         windGustMph: weatherIndex == null ? null : readNumber(weather.wind_gusts_10m, weatherIndex),
         windDirectionDegrees: weatherIndex == null ? null : readNumber(weather.wind_direction_10m, weatherIndex),
@@ -285,21 +305,52 @@ function findNearestWeatherIndex(marineTime: string, weatherTimes: string[]) {
   return nearestDiff <= 90 * 60 * 1000 ? nearestIndex : undefined;
 }
 
-function estimateBreakingSurfHeight(spot: SurfSpot, offshoreHeight: number | null, swellDirection: number | null) {
+function buildSwellComponents(spot: SurfSpot, marine: RawHourly, index: number): SwellComponent[] {
+  return [
+    component("Primary", readNumber(marine.swell_wave_height, index), readNumber(marine.swell_wave_period, index), readNumber(marine.swell_wave_direction, index), spot),
+    component("Secondary", readNumber(marine.secondary_swell_wave_height, index), readNumber(marine.secondary_swell_wave_period, index), readNumber(marine.secondary_swell_wave_direction, index), spot),
+    component("Tertiary", readNumber(marine.tertiary_swell_wave_height, index), readNumber(marine.tertiary_swell_wave_period, index), readNumber(marine.tertiary_swell_wave_direction, index), spot),
+    component("Wind swell", readNumber(marine.wind_wave_height, index), readNumber(marine.wind_wave_period, index), readNumber(marine.wind_wave_direction, index), spot),
+  ].filter((item) => item.heightFeet != null || item.periodSeconds != null || item.directionDegrees != null);
+}
+
+function component(label: string, heightFeet: number | null, periodSeconds: number | null, directionDegrees: number | null, spot: SurfSpot): SwellComponent {
+  return {
+    label,
+    heightFeet,
+    periodSeconds,
+    directionDegrees,
+    adjustedHeightFeet: adjustComponentHeight(spot, heightFeet, periodSeconds, directionDegrees),
+  };
+}
+
+function estimateBreakingSurfHeight(spot: SurfSpot, offshoreHeight: number | null, swellDirection: number | null, components: SwellComponent[]) {
+  const componentHeights = components
+    .map((item) => item.adjustedHeightFeet)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
+  if (componentHeights.length) {
+    return round(Math.sqrt(componentHeights.reduce((sum, value) => sum + value ** 2, 0)), 1);
+  }
+
+  if (offshoreHeight == null) return null;
+  return adjustComponentHeight(spot, offshoreHeight, null, swellDirection);
+}
+
+function adjustComponentHeight(spot: SurfSpot, offshoreHeight: number | null, periodSeconds: number | null, swellDirection: number | null) {
   if (offshoreHeight == null) return null;
   const calibration = spot.surfHeightCalibration;
   if (!calibration || swellDirection == null) return round(offshoreHeight, 1);
 
   const exposure = directionExposure(swellDirection, calibration.exposedSwellDirections);
+  const periodMultiplier = periodSeconds == null ? 1 : periodSeconds >= 16 ? 1.18 : periodSeconds >= 13 ? 1.08 : periodSeconds >= 10 ? 1 : periodSeconds >= 8 ? 0.82 : 0.65;
   const multiplier =
     exposure === "exposed"
       ? calibration.breakingWaveMultiplier
       : exposure === "partial"
         ? calibration.partialAngleMultiplier
         : calibration.offAngleMultiplier;
-  const capped = exposure === "blocked" && calibration.maxOffAngleFeet != null
-    ? Math.min(offshoreHeight * multiplier, calibration.maxOffAngleFeet)
-    : offshoreHeight * multiplier;
+  const adjusted = offshoreHeight * multiplier * periodMultiplier;
+  const capped = exposure === "blocked" && calibration.maxOffAngleFeet != null ? Math.min(adjusted, calibration.maxOffAngleFeet) : adjusted;
 
   return round(capped, 1);
 }
