@@ -143,7 +143,7 @@ export const forecastInputSchema = z.object({
 
 export type ForecastInput = z.infer<typeof forecastInputSchema>;
 
-interface RawHourly {
+export interface RawHourly {
   time?: string[];
   wave_height?: Array<number | null>;
   wave_direction?: Array<number | null>;

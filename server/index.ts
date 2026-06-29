@@ -1,7 +1,7 @@
 import express from "express";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { buildForecast, forecastInputSchema, resolveSpot, SPOTS } from "../lib/forecast";
+import { buildForecast, forecastInputSchema, resolveSpot, SPOTS, type RawHourly } from "../lib/forecast";
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -24,22 +24,59 @@ app.get("/api/forecast", async (request, response) => {
   if (!parsed.success) return response.status(400).json({ error: "Choose a valid surf spot." });
 
   const spot = resolveSpot(parsed.data);
-  const marineParams = new URLSearchParams({
-    latitude: String(spot.latitude),
-    longitude: String(spot.longitude),
-    hourly: [
-      "wave_height",
-      "wave_direction",
-      "wave_period",
-      "swell_wave_height",
-      "swell_wave_direction",
-      "swell_wave_period",
-    ].join(","),
-    timezone: "auto",
-    forecast_days: "3",
-    length_unit: "imperial",
-  });
-  const weatherParams = new URLSearchParams({
+
+  try {
+    const [marine, weather, tide] = await Promise.all([
+      fetchMarineForecast(spot),
+      fetchWeatherForecast(spot),
+      fetchTideSummary(spot.tideStationId),
+    ]);
+    response.json({ forecast: buildForecast(spot, (marine.hourly ?? {}) as RawHourly, (weather.hourly ?? {}) as RawHourly, new Date(), tide) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Forecast data could not be loaded.";
+    response.status(502).json({ error: message });
+  }
+});
+
+async function fetchMarineForecast(spot: { latitude: number; longitude: number }) {
+  const attempts = [
+    { cellSelection: "sea", imperial: true },
+    { cellSelection: "nearest", imperial: true },
+    { cellSelection: "nearest", imperial: false },
+  ];
+  const errors: string[] = [];
+
+  for (const attempt of attempts) {
+    try {
+      const params = new URLSearchParams({
+        latitude: String(spot.latitude),
+        longitude: String(spot.longitude),
+        hourly: [
+          "wave_height",
+          "wave_direction",
+          "wave_period",
+          "swell_wave_height",
+          "swell_wave_direction",
+          "swell_wave_period",
+        ].join(","),
+        timezone: "auto",
+        forecast_days: "3",
+        cell_selection: attempt.cellSelection,
+      });
+      if (attempt.imperial) params.set("length_unit", "imperial");
+
+      const data = await fetchJson(`https://marine-api.open-meteo.com/v1/marine?${params.toString()}`);
+      return attempt.imperial ? data : convertMarineMetersToFeet(data);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : "Marine source failed.");
+    }
+  }
+
+  throw new Error(`Live wave data is not available for this spot right now. ${errors[errors.length - 1] ?? "Try refreshing or choosing another spot."}`);
+}
+
+async function fetchWeatherForecast(spot: { latitude: number; longitude: number }) {
+  const params = new URLSearchParams({
     latitude: String(spot.latitude),
     longitude: String(spot.longitude),
     hourly: ["wind_speed_10m", "wind_direction_10m", "wind_gusts_10m"].join(","),
@@ -49,19 +86,45 @@ app.get("/api/forecast", async (request, response) => {
   });
 
   try {
-    const [marineResponse, weatherResponse, tide] = await Promise.all([
-      fetch(`https://marine-api.open-meteo.com/v1/marine?${marineParams.toString()}`),
-      fetch(`https://api.open-meteo.com/v1/forecast?${weatherParams.toString()}`),
-      fetchTideSummary(spot.tideStationId),
-    ]);
-    if (!marineResponse.ok || !weatherResponse.ok) throw new Error("Forecast source did not return usable data.");
-    const [marine, weather] = await Promise.all([marineResponse.json(), weatherResponse.json()]);
-    response.json({ forecast: buildForecast(spot, marine.hourly ?? {}, weather.hourly ?? {}, new Date(), tide) });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Forecast data could not be loaded.";
-    response.status(502).json({ error: message });
+    return await fetchJson(`https://api.open-meteo.com/v1/forecast?${params.toString()}`);
+  } catch {
+    return { hourly: {} };
   }
-});
+}
+
+async function fetchJson(url: string) {
+  const response = await fetch(url);
+  let data: Record<string, unknown> = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok || data.error === true) {
+    const reason = typeof data.reason === "string" ? data.reason : typeof data.error === "string" ? data.error : response.statusText;
+    throw new Error(reason || "Forecast source did not return usable data.");
+  }
+
+  return data as { hourly?: Record<string, unknown> };
+}
+
+function convertMarineMetersToFeet(data: { hourly?: Record<string, unknown> }) {
+  const hourly = data.hourly ?? {};
+  return {
+    ...data,
+    hourly: {
+      ...hourly,
+      wave_height: convertArrayMetersToFeet(hourly.wave_height),
+      swell_wave_height: convertArrayMetersToFeet(hourly.swell_wave_height),
+    },
+  };
+}
+
+function convertArrayMetersToFeet(value: unknown) {
+  if (!Array.isArray(value)) return value;
+  return value.map((item) => (typeof item === "number" ? item * 3.28084 : item));
+}
 
 async function fetchTideSummary(stationId: string | null) {
   if (!stationId) return null;
